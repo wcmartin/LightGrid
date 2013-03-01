@@ -1,11 +1,14 @@
-/*class SnakeGame {
+import java.util.Queue;
+import java.util.LinkedList;
+
+class SnakeGame {
 
   int xFood, yFood, time;
   Snake s;
   
   SnakeGame() {
-    xFood = int(random(LEDS_WIDE));
-    yFood = int(random(LEDS_TALL));
+    xFood = int(random(GRID_WIDTH));
+    yFood = int(random(GRID_HEIGHT));
   }
   
   void startGame() {
@@ -23,8 +26,8 @@
         s.S_length += 1;
         if(s.speed > 30)
           s.speed -= 2;
-        xFood = int(random(LEDS_WIDE));
-        yFood = int(random(LEDS_TALL));
+        xFood = int(random(GRID_WIDTH));
+        yFood = int(random(GRID_HEIGHT));
       }
       if(millis()-time > 150) {
         setColorRandom(xFood, yFood);
@@ -91,12 +94,11 @@ class Snake extends Thread {
           break;
       }
       
-
       
       xHead += dx;
       yHead += dy;
       Pair h = new Pair(xHead,yHead);
-      if(xHead >= LEDS_WIDE || yHead >= LEDS_TALL || xHead < 0 || yHead < 0 || body.contains(h)) {
+      if(xHead >= GRID_WIDTH || yHead >= GRID_HEIGHT || xHead < 0 || yHead < 0 || body.contains(h)) {
         alive = false;
         break;
       }
@@ -120,13 +122,13 @@ class Snake extends Thread {
     setBackgroundColor(1);
     clearGrid();
     String msg = "GAMEOVER";
-    for(int i=0; i<msg.length(); ++i) {
+    /*for(int i=0; i<msg.length(); ++i) {
       if(i*5<20)
         drawChar(i*5,4,msg.charAt(i), Color.HSBtoRGB(45.0*i/360.0,1.0,1.0));
       else
         drawChar(i*5-20,12,msg.charAt(i),Color.HSBtoRGB(45.0*i/360.0,1.0,1.0));
     }
-    if(mode != 'z') clearGrid();
+    if(mode != 'z') clearGrid();*/
   }
   
   void setDir(int _dir) {
@@ -153,4 +155,4 @@ class Pair {
     if(this.getClass() != other.getClass()) return false;
     return (x == ((Pair)other).x && y == ((Pair)other).y);
   }
-}*/
+}
