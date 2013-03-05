@@ -5,10 +5,11 @@
  */
 
 import java.awt.Color;
+import processing.serial.*;
 
 // Constants
-static final int GRID_WIDTH = 10;
-static final int GRID_HEIGHT = 10;
+static final int GRID_WIDTH = 13;
+static final int GRID_HEIGHT = 13;
 static final int PADDING = 30;
 static final int PANEL_MARGIN = 3;
 
@@ -16,10 +17,12 @@ static final int PANEL_MARGIN = 3;
 int panelSide = 50;
 int winWidth = 2*PADDING + GRID_WIDTH*panelSide + (GRID_WIDTH+1)*PANEL_MARGIN;
 int winHeight = 2*PADDING + GRID_HEIGHT*panelSide + (GRID_HEIGHT+1)*PANEL_MARGIN;
-int[][][] gridState = new int[GRID_WIDTH][GRID_HEIGHT][3];
+byte[][][] gridState = new byte[GRID_WIDTH][GRID_HEIGHT][3];
 color drawColor = #00FF00;
 color backgroundColor = #000000;
 SnakeGame z;
+Serial myPort; 
+SerialThread sthread = new SerialThread();
 
 void setup() {
   size(winWidth, winHeight);
@@ -28,18 +31,33 @@ void setup() {
   smooth();
   colorMode(RGB, 31);
   setupGUI();
-  z = new SnakeGame();
+  initializeGridModes();
+  //setupSerial();
+  
   z.startGame();
 }
 
 void draw() {
   z.updateBoard(keyCode);
   drawGridState();
+  
+  // Not actually threaded yet
+  //sthread.createGridData();
 }
 
 void setupGUI() {
   drawGridOutline();
   drawGridState();
+}
+
+void setupSerial() {
+  println(Serial.list());
+  String portName = Serial.list()[4];
+  myPort = new Serial(this, portName, 115200);
+}
+
+void initializeGridModes() {
+  z = new SnakeGame();
 }
 
 void drawGridOutline() {
@@ -68,9 +86,9 @@ void drawGridState() {
 
 void setColor(int x, int y, color c) {
   try {
-    gridState[x][y][0] = int(red(c));
-    gridState[x][y][1] = int(green(c));
-    gridState[x][y][2] = int(blue(c));
+    gridState[x][y][0] = byte(red(c));
+    gridState[x][y][1] = byte(green(c));
+    gridState[x][y][2] = byte(blue(c));
   } 
   catch(Exception ArrayIndexOutOfBoundsException) {
     println("Outside grid, x: "+x+" y: "+y);
@@ -78,9 +96,9 @@ void setColor(int x, int y, color c) {
 }
 
 void setColorRandom(int x, int y) {
-  gridState[x][y][0] = int(random(32));
-  gridState[x][y][1] = int(random(32));
-  gridState[x][y][2] = int(random(32));
+  gridState[x][y][0] = byte(random(32));
+  gridState[x][y][1] = byte(random(32));
+  gridState[x][y][2] = byte(random(32));
 }
 
 void setBackgroundColor(int h) {
