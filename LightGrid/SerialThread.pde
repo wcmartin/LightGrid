@@ -15,6 +15,7 @@ class SerialThread {
   
   void createGridData() {
     int dataPos = 0;
+    System.out.println(gridState[0][0][1]);
     for(int j=0; j<HEIGHT; j++) {
       for(int i=0; i<WIDTH; i++) {
          byte r = gridState[i][j][0];

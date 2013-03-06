@@ -8,8 +8,8 @@ import java.awt.Color;
 import processing.serial.*;
 
 // Constants
-static final int GRID_WIDTH = 13;
-static final int GRID_HEIGHT = 13;
+static final int GRID_WIDTH = 8;
+static final int GRID_HEIGHT = 6;
 static final int PADDING = 30;
 static final int PANEL_MARGIN = 3;
 
@@ -32,7 +32,7 @@ void setup() {
   colorMode(RGB, 31);
   setupGUI();
   initializeGridModes();
-  //setupSerial();
+  setupSerial();
   
   z.startGame();
 }
@@ -42,7 +42,7 @@ void draw() {
   drawGridState();
   
   // Not actually threaded yet
-  //sthread.createGridData();
+  sthread.createGridData();
 }
 
 void setupGUI() {
@@ -53,7 +53,7 @@ void setupGUI() {
 void setupSerial() {
   println(Serial.list());
   String portName = Serial.list()[4];
-  myPort = new Serial(this, portName, 115200);
+  myPort = new Serial(this, portName, 9600);
 }
 
 void initializeGridModes() {
