@@ -98,11 +98,12 @@ void loop() {
         for(int i = 0; i < WIDTH; i++) {
           int value =  map(proximity1-120, 0, 180, 0, 255);
           if(proximity1 < 140) value = 0;
-           *(pData+2+(j*WIDTH + i)*3) = value;
+          *(pData+0+(j*WIDTH + i)*3) = 0;
+          *(pData+1+(j*WIDTH + i)*3) = 0;
+          *(pData+2+(j*WIDTH + i)*3) = value;
         }
       } 
     }
-    delay(100);
     break;
     
     case 4: // Serial command
