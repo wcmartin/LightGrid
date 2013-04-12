@@ -6,11 +6,12 @@
 #define BUTTON_PIN 2
 #define PROXIMITY1_PIN A0
 #define PROXIMITY2_PIN A1
+#define PROXIMITY3_PIN A2
 #define DEBOUNCE_DELAY 50
 #define PROXIMITY_TIME_ON 500
 
 int hue = 1;
-int systemState = 4;
+int systemState = 1;
 int lastButtonState = LOW;
 int lastProxState1 = 0;
 boolean buttonOpen = true;
@@ -18,11 +19,13 @@ long lastDebounceTime = 0;
 long lastDebounceTime1 = 0;
 long previousMillis = 0;
 
+int proximityHistory[3];
+
 #define PIN 4
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(BUTTON_PIN, INPUT);
   
   FastSPI_LED.setLeds(NUM_LEDS);
@@ -38,6 +41,8 @@ void setup()
       *pData++ = 0;
   }
   FastSPI_LED.show();
+  
+  memset(proximityHistory,1023,sizeof(int)*3);
 }
 
 void loop() {
@@ -53,7 +58,7 @@ void loop() {
     if(reading == LOW && buttonOpen) {    
       buttonOpen = false;
       systemState++;
-      if(systemState>4) systemState = 1;
+      if(systemState>3) systemState = 1;
     }
     if(reading == HIGH) {
       buttonOpen = true;
@@ -79,12 +84,12 @@ void loop() {
     }
     break;
     
-    case 2:
+    case 2: // Random color
     {
       for(int j = 0; j < HEIGHT; j++) {
         for(int i = 0; i < WIDTH; i++) {
           int pos = j*WIDTH + i;
-          LedHSV(180, 1, 1, pos);
+          LedHSV(random(1,360), 1, 1, pos);
         }
       }
     }
@@ -92,15 +97,32 @@ void loop() {
     
     case 3: // Proximity
     {
-      int proximity1 = analogRead(PROXIMITY1_PIN); 
-      Serial.println(proximity1);
+      int proximity1 = analogRead(PROXIMITY1_PIN);
+      int proximity2 = analogRead(PROXIMITY2_PIN);
+      int proximity3 = analogRead(PROXIMITY3_PIN);
+      proximityHistory[0] = proximity1;
+      proximityHistory[1] = proximity2;
+      proximityHistory[2] = proximity3;
+      /*Serial.println(proximity1);
+      Serial.println(proximity2);
+      Serial.println(proximity3);
+      Serial.println();
+      delay(100);*/
       for(int j = 0; j < HEIGHT; j++) {
         for(int i = 0; i < WIDTH; i++) {
-          int value =  map(proximity1-120, 0, 180, 0, 255);
-          if(proximity1 < 140) value = 0;
-          *(pData+0+(j*WIDTH + i)*3) = 0;
-          *(pData+1+(j*WIDTH + i)*3) = 0;
-          *(pData+2+(j*WIDTH + i)*3) = value;
+          int b1 =  map(proximity1, 130, 300, 0, 100);
+          if(proximity1 < 140) b1 = 0;
+          int b2 =  map(proximity2, 170, 310, 0, 100);
+          if(proximity2 < 180) b2 = 0;
+          int b3 =  map(proximity3, 170, 310, 0, 100);
+          if(proximity3 < 180) b3 = 0;
+          if(j<2) {
+            LedHSV(40, 1, b1*0.01, j*WIDTH + i);
+          } else if(j>=2 && j<4) {
+            LedHSV(140, 1, b2*0.01, j*WIDTH + i);
+          } else {
+            LedHSV(240, 1, b3*0.01, j*WIDTH + i);
+          }
         }
       } 
     }
@@ -110,26 +132,33 @@ void loop() {
     {
       unsigned int c1, c2, c3, pos;
       if (Serial.available() > 0) {
+        //unsigned int val = Serial.parseInt();
+        //Serial.println(val,DEC);
+        
+        
         for(byte j=0; j<HEIGHT; ++j) {
             for(byte i=0; i<WIDTH; ++i) {
               c1 = Serial.read();
               c2 = Serial.read();
               c3 = Serial.read();
-              
+
               pos = i+WIDTH*j;
               if(j % 2 != 0)
                 pos = WIDTH*(j+1)-i-1;
 
-              *(pData+pos*3) = c1 * 8;
-              *(pData+1+pos*3) = c2 * 8;
-              *(pData+2+pos*3) = c3 * 8;
+              *(pData+pos*3) = c1;//c1 * 8;
+              *(pData+1+pos*3) = c2;//c2 * 8;
+              *(pData+2+pos*3) = c3;//c3 * 8;
             }
         }
+        //Serial.write(c1);
+          //      Serial.write(c2);
+            //            Serial.write(c3);
+
       }
     }
     break;
   }
-  
   FastSPI_LED.show();
 }
 

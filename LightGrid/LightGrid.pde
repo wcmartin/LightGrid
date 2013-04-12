@@ -34,11 +34,12 @@ void setup() {
   initializeGridModes();
   setupSerial();
   
-  z.startGame();
+  setColorRandom(5,5);
+  //z.startGame();
 }
 
 void draw() {
-  z.updateBoard(keyCode);
+  //z.updateBoard(keyCode);
   drawGridState();
   
   // Not actually threaded yet
@@ -53,7 +54,7 @@ void setupGUI() {
 void setupSerial() {
   println(Serial.list());
   String portName = Serial.list()[4];
-  myPort = new Serial(this, portName, 9600);
+  myPort = new Serial(this, portName, 115200);
 }
 
 void initializeGridModes() {

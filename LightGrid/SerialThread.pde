@@ -3,21 +3,21 @@ class SerialThread {
   byte[] dataLedGrid;
   
   SerialThread() {
-    dataLedGrid = new byte[WIDTH*HEIGHT*3];
+    dataLedGrid = new byte[GRID_WIDTH*GRID_HEIGHT*3];
   }
   
   public void run() {
-    if(myPort != null)
+    if(myPort != null) {
       myPort.write(dataLedGrid);
+    }
     else 
       System.out.println("no serial.");
   }
   
   void createGridData() {
     int dataPos = 0;
-    System.out.println(gridState[0][0][1]);
-    for(int j=0; j<HEIGHT; j++) {
-      for(int i=0; i<WIDTH; i++) {
+    for(int j=0; j<GRID_HEIGHT; j++) {
+      for(int i=0; i<GRID_WIDTH; i++) {
          byte r = gridState[i][j][0];
          byte g = gridState[i][j][1];
          byte b = gridState[i][j][2];
@@ -28,6 +28,11 @@ class SerialThread {
          dataPos+=3;
       }
     }
-    sthread.run();
+    myPort.write(dataLedGrid);
+    while(myPort.available() == -1) {}
+    //System.out.println(myPort.read());
+    //System.out.println(myPort.read());
+    //System.out.println(myPort.read());
+    System.out.println();
   }
 }
