@@ -35,20 +35,21 @@ byte selected_color = 0;
 //uint32_t grid_state[ROWS][COLS];
 
 // Button Variables
-int button_pins[] = {JOY_UP_PIN, JOY_DOWN_PIN};
+/*int button_pins[] = {JOY_UP_PIN, JOY_DOWN_PIN};
 int button_reading[BUTTONS];
 int button_state[BUTTONS];
 int last_button_state[BUTTONS];
-long last_debounce_time[BUTTONS];
+long last_debounce_time[BUTTONS];*/
 
 // Proximity Sensor Variables
 uint16_t proximity_readings[PROXIMITY_SENSORS][2];
 uint8_t current_proximity_array = 0;
 
 void setup() {
+  Serial.begin(115200);
   // Set initial values
-  memset(last_button_state, LOW, sizeof(int)*BUTTONS);
-  memset(last_debounce_time, 0, sizeof(long)*BUTTONS);
+  /*memset(last_button_state, LOW, sizeof(int)*BUTTONS);
+  memset(last_debounce_time, 0, sizeof(long)*BUTTONS);*/
   memset(proximity_readings, 0, sizeof(int)*PROXIMITY_SENSORS);
   
   // Set up pins
@@ -99,24 +100,32 @@ void loop() {
   }*/
   
   // Read proximity sensors
-  for(int i=0; i<16; ++i) {
+  for(int i=0; i<=15; ++i) {
     digitalWrite(CONTROL0, (i&15)>>3); 
     digitalWrite(CONTROL1, (i&7)>>2);  
     digitalWrite(CONTROL2, (i&3)>>1);  
     digitalWrite(CONTROL3, (i&1));     
-    proximity_readings[i] = analogRead(0);
-    proximity_readings[16+i] = analogRead(1);
-    if(i<=7) proximity_readings[32+i] = analogRead(2);
+    proximity_readings[i][current_proximity_array] = uint16_t(analogRead(0));
+    proximity_readings[16+i][current_proximity_array] = uint16_t(analogRead(1));
+    if(i<=7) proximity_readings[32+i][current_proximity_array] = uint16_t(analogRead(2));
   }
-  ToggleProximityArray();
+  /*for(int i=0; i<PROXIMITY_SENSORS; ++i) {
+    Serial.print(proximity_readings[i][current_proximity_array]);
+    Serial.print(" ");
+  }
+  Serial.println();*/
+  ToggleProximityArray(); 
+  
           
   // Perform current system mode
   switch(system_mode) {
     
     // Pixels animate on hover
     case PROXIMITY_MODE:
-      for(int i=0; i<PROXIMITY_SENSORS; ++i) {
-        if(proximity_readings[i] > 180) {
+      for(int i=0; i<5; ++i) {
+        if(abs(proximity_readings[i][current_proximity_array] - proximity_readings[i][OtherProximityIdx()]) > 10) {
+          Serial.println(abs(proximity_readings[i][current_proximity_array] - proximity_readings[i][OtherProximityIdx()]));
+          
           /*int x = i/(COLS/2);
           int y = i%(COLS/2);*/
               grid.setPixelColor(i, Wheel(selected_color));
@@ -131,7 +140,7 @@ void loop() {
     // Pixels turn on when hovered, fade over time.
     case DRAW_MODE:
       for(int i=0; i<PROXIMITY_SENSORS; ++i) {
-        if(proximity_readings[i] < 180) {
+        if(proximity_readings[i][current_proximity_array] > 180) {
           int x = i/(COLS/2);
           int y = i%(COLS/2);
           SetPixel(2*x, 2*y, Wheel(selected_color));
@@ -280,4 +289,8 @@ void ToggleProximityArray() {
   if(++current_proximity_array > 1) {
     current_proximity_array = 0;
   }
+}
+
+uint8_t OtherProximityIdx() {
+  return current_proximity_array == 0 ? 1 : 0;
 }
