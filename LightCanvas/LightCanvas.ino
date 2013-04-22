@@ -28,7 +28,7 @@
 
 // System Variables
 Adafruit_WS2801 grid = Adafruit_WS2801(ROWS*COLS); // Data / Clock pins = 11 / 13 on Uno
-unsigned int system_mode = ATTRACT_MODE;
+unsigned int system_mode = PROXIMITY_MODE;
 byte selected_color = 0;
 
 // Grid variables
@@ -42,18 +42,22 @@ int last_button_state[BUTTONS];
 long last_debounce_time[BUTTONS];
 
 // Proximity Sensor Variables
-int proximity_readings[PROXIMITY_SENSORS];
+uint16_t proximity_readings[PROXIMITY_SENSORS][2];
+uint8_t current_proximity_array = 0;
 
 void setup() {
-  
   // Set initial values
   memset(last_button_state, LOW, sizeof(int)*BUTTONS);
   memset(last_debounce_time, 0, sizeof(long)*BUTTONS);
   memset(proximity_readings, 0, sizeof(int)*PROXIMITY_SENSORS);
   
   // Set up pins
-  pinMode(JOY_UP_PIN, INPUT);
-  pinMode(JOY_DOWN_PIN, INPUT);
+  /*pinMode(JOY_UP_PIN, INPUT);
+  pinMode(JOY_DOWN_PIN, INPUT);*/
+  pinMode(CONTROL0, OUTPUT);
+  pinMode(CONTROL1, OUTPUT);
+  pinMode(CONTROL2, OUTPUT);
+  pinMode(CONTROL3, OUTPUT);
   
   // Set up grid
   grid.begin();
@@ -64,7 +68,7 @@ void setup() {
 void loop() {
   
   // Read button inputs
-  for(int i=0; i<2; ++i) {
+  /*for(int i=0; i<2; ++i) {
     button_reading[i] = digitalRead(button_pins[i]);
     if (button_reading[i] != last_button_state[i]) {
       last_debounce_time[i] = millis();
@@ -80,10 +84,10 @@ void loop() {
     if(button_reading[i] == HIGH) {
       system_mode = i-1;
     }
-  }
+  }*/
   
   // Adjust selected color
-  if(button_reading[JOY_UP_IDX] == HIGH) {
+  /*if(button_reading[JOY_UP_IDX] == HIGH) {
     selected_color += 1;
     ShowUserColor(Wheel(selected_color));
     return;
@@ -92,7 +96,7 @@ void loop() {
     selected_color -= 1;
     ShowUserColor(Wheel(selected_color));
     return;
-  }
+  }*/
   
   // Read proximity sensors
   for(int i=0; i<16; ++i) {
@@ -104,20 +108,22 @@ void loop() {
     proximity_readings[16+i] = analogRead(1);
     if(i<=7) proximity_readings[32+i] = analogRead(2);
   }
-  
+  ToggleProximityArray();
+          
   // Perform current system mode
   switch(system_mode) {
     
     // Pixels animate on hover
     case PROXIMITY_MODE:
       for(int i=0; i<PROXIMITY_SENSORS; ++i) {
-        if(proximity_readings[i] < 180) {
-          int x = i/(COLS/2);
-          int y = i%(COLS/2);
-          SetPixel(2*x, 2*y, Wheel(selected_color));
+        if(proximity_readings[i] > 180) {
+          /*int x = i/(COLS/2);
+          int y = i%(COLS/2);*/
+              grid.setPixelColor(i, Wheel(selected_color));
+          /*SetPixel(2*x, 2*y, Wheel(selected_color));
           SetPixel(2*x, 2*y+1, Wheel(selected_color));
           SetPixel(2*x+1, 2*y, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
+          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));*/
         }
       }
     break;
@@ -268,4 +274,10 @@ void ShowUserColor(uint32_t color) {
   for(int i=0; i<ROWS*COLS; ++i)
      grid.setPixelColor(i, color);
   grid.show();
+}
+
+void ToggleProximityArray() {
+  if(++current_proximity_array > 1) {
+    current_proximity_array = 0;
+  }
 }
