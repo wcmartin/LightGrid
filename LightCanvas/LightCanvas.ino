@@ -26,7 +26,7 @@
 #define ATTRACT_MODE 5
 #define COLOR_SKIP 10
 #define NUM_SENSOR_READINGS 3
-#define ACTIVE_SENSORS 20
+#define ACTIVE_SENSORS 40
 
 #define DSERIAL     if(DEBUG) Serial.print
 #define DSERIAL_LN  if(DEBUG) Serial.println
@@ -64,6 +64,8 @@ void setup() {
 
 
 void loop() {
+  selected_color = (millis() / 500) % 256;
+  
   // Read proximity sensors
   for(int i=0; i<=15; ++i) {
     digitalWrite(CONTROL0, (i&15)>>3); 
@@ -93,7 +95,7 @@ void loop() {
         int c_max = max_readings(i);
         int c_min = min_readings(i);
         int diff = abs(c_max - c_min);
-        if(i == 18)
+        if(i == 10)
         {
           DSERIAL("index is ");
           DSERIAL(i);
@@ -105,29 +107,65 @@ void loop() {
           DSERIAL_LN(c_min);
         }
         
-        //DSERIAL_LN( proximity_readings[i][current_proximity_array]);
-        //delay(100);
         if(diff >= 18) {
           
           int y = i/(COLS/2);
           int x = i%(COLS/2);
-          
           SetPixel(2*x, 2*y, Wheel(selected_color));
-          SetPixel(2*x, 2*y+1, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
+          // SetPixel(2*x, 2*y+1, Wheel(selected_color));
+          // SetPixel(2*x+1, 2*y, Wheel(selected_color));
+          // SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
         }
       }
-      for(int i=0; i<ROWS*COLS; ++i) {
+      for(int i=0; i<ROWS*COLS; ++i){
+        int x;
+        int y;
+        int diff_x;
+        int diff_y;
+        int idx = i + 1;
         uint32_t current_color = grid.getPixelColor(i);
-        uint8_t red = (current_color & 0x000000FF);
-        uint8_t green =  (current_color & 0x0000FF00)>>8;
-        uint8_t blue = (current_color & 0x00FF0000)>>16;
+        uint32_t red = (current_color & 0x000000FF);
+        uint32_t green =  (current_color & 0x0000FF00) >> 8;
+        uint32_t blue = (current_color & 0x00FF0000) >> 16;
         if(red > 0) red--;
         
         if(blue > 0) blue--;
         if(green > 0) green--;
-        grid.setPixelColor(i, red | (green << 8) | (blue << 16));
+        
+        if(red | green | blue)
+        {
+          current_color = red | (green << 8) | (blue << 16);
+          y = idx/(COLS/2);
+          x = idx%(COLS/2);
+          
+          diff_y = (idx/COLS) - 2*y;
+          diff_x = (idx%COLS) - 2*x;
+          
+          grid.setPixelColor(i,0);
+          
+          if(diff_y)
+          {
+            if(diff_x)
+            {
+              grid.setPixelColor(i-1, current_color);
+            }
+            else
+            {
+              grid.setPixelColor(i-COLS, current_color);
+            }
+          }
+          else
+          {
+            if(diff_x)
+            {
+              grid.setPixelColor(i+COLS, current_color);
+            }
+            else
+            {
+              grid.setPixelColor(i+1, current_color);
+            }
+          }
+        }
       }
 
     break;
