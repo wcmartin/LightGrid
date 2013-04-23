@@ -25,6 +25,12 @@
 #define SAND_MODE 3
 #define ATTRACT_MODE 5
 #define COLOR_SKIP 10
+#define NUM_SENSOR_READINGS 3
+#define ACTIVE_SENSORS 20
+
+#define DSERIAL     if(DEBUG) Serial.print
+#define DSERIAL_LN  if(DEBUG) Serial.println
+#define DEBUG                 1
 
 // System Variables
 Adafruit_WS2801 grid = Adafruit_WS2801(ROWS*COLS); // Data / Clock pins = 11 / 13 on Uno
@@ -34,23 +40,14 @@ byte selected_color = 0;
 // Grid variables
 //uint32_t grid_state[ROWS][COLS];
 
-// Button Variables
-/*int button_pins[] = {JOY_UP_PIN, JOY_DOWN_PIN};
-int button_reading[BUTTONS];
-int button_state[BUTTONS];
-int last_button_state[BUTTONS];
-long last_debounce_time[BUTTONS];*/
-
 // Proximity Sensor Variables
-uint16_t proximity_readings[PROXIMITY_SENSORS][2];
+uint16_t proximity_readings[PROXIMITY_SENSORS][NUM_SENSOR_READINGS];
 uint8_t current_proximity_array = 0;
 
 void setup() {
   Serial.begin(115200);
   // Set initial values
-  /*memset(last_button_state, LOW, sizeof(int)*BUTTONS);
-  memset(last_debounce_time, 0, sizeof(long)*BUTTONS);*/
-  memset(proximity_readings, 0, sizeof(int)*PROXIMITY_SENSORS);
+  memset(proximity_readings, 0, sizeof(int)*PROXIMITY_SENSORS*NUM_SENSOR_READINGS);
   
   // Set up pins
   /*pinMode(JOY_UP_PIN, INPUT);
@@ -67,38 +64,6 @@ void setup() {
 
 
 void loop() {
-  
-  // Read button inputs
-  /*for(int i=0; i<2; ++i) {
-    button_reading[i] = digitalRead(button_pins[i]);
-    if (button_reading[i] != last_button_state[i]) {
-      last_debounce_time[i] = millis();
-    } 
-    if ((millis() - last_debounce_time[i]) > DEBOUNCE_DELAY) {
-      button_state[i] = button_reading[i];
-    }
-    last_button_state[i] = button_reading[i];
-  }
-  
-  // Change mode on button press
-  for(int i=2; i<BUTTONS; ++i) {
-    if(button_reading[i] == HIGH) {
-      system_mode = i-1;
-    }
-  }*/
-  
-  // Adjust selected color
-  /*if(button_reading[JOY_UP_IDX] == HIGH) {
-    selected_color += 1;
-    ShowUserColor(Wheel(selected_color));
-    return;
-  }
-  if(button_reading[JOY_DOWN_IDX] == HIGH) {
-    selected_color -= 1;
-    ShowUserColor(Wheel(selected_color));
-    return;
-  }*/
-  
   // Read proximity sensors
   for(int i=0; i<=15; ++i) {
     digitalWrite(CONTROL0, (i&15)>>3); 
@@ -109,11 +74,13 @@ void loop() {
     proximity_readings[16+i][current_proximity_array] = uint16_t(analogRead(1));
     if(i<=7) proximity_readings[32+i][current_proximity_array] = uint16_t(analogRead(2));
   }
+  
   /*for(int i=0; i<PROXIMITY_SENSORS; ++i) {
     Serial.print(proximity_readings[i][current_proximity_array]);
     Serial.print(" ");
   }
   Serial.println();*/
+  
   ToggleProximityArray(); 
   
           
@@ -122,19 +89,47 @@ void loop() {
     
     // Pixels animate on hover
     case PROXIMITY_MODE:
-      for(int i=0; i<5; ++i) {
-        if(abs(proximity_readings[i][current_proximity_array] - proximity_readings[i][OtherProximityIdx()]) > 10) {
-          Serial.println(abs(proximity_readings[i][current_proximity_array] - proximity_readings[i][OtherProximityIdx()]));
+      for(int i=0; i < ACTIVE_SENSORS; ++i) {
+        int c_max = max_readings(i);
+        int c_min = min_readings(i);
+        int diff = abs(c_max - c_min);
+        if(i == 18)
+        {
+          DSERIAL("index is ");
+          DSERIAL(i);
+          DSERIAL(" and diff is ");
+          DSERIAL(diff);
+          DSERIAL(" and max is ");
+          DSERIAL(c_max);
+          DSERIAL(" and min is ");
+          DSERIAL_LN(c_min);
+        }
+        
+        //DSERIAL_LN( proximity_readings[i][current_proximity_array]);
+        //delay(100);
+        if(diff >= 18) {
           
-          /*int x = i/(COLS/2);
-          int y = i%(COLS/2);*/
-              grid.setPixelColor(i, Wheel(selected_color));
-          /*SetPixel(2*x, 2*y, Wheel(selected_color));
+          int y = i/(COLS/2);
+          int x = i%(COLS/2);
+          
+          SetPixel(2*x, 2*y, Wheel(selected_color));
           SetPixel(2*x, 2*y+1, Wheel(selected_color));
           SetPixel(2*x+1, 2*y, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));*/
+          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
         }
       }
+      for(int i=0; i<ROWS*COLS; ++i) {
+        uint32_t current_color = grid.getPixelColor(i);
+        uint8_t red = (current_color & 0x000000FF);
+        uint8_t green =  (current_color & 0x0000FF00)>>8;
+        uint8_t blue = (current_color & 0x00FF0000)>>16;
+        if(red > 0) red--;
+        
+        if(blue > 0) blue--;
+        if(green > 0) green--;
+        grid.setPixelColor(i, red | (green << 8) | (blue << 16));
+      }
+
     break;
     
     // Pixels turn on when hovered, fade over time.
@@ -143,6 +138,7 @@ void loop() {
         if(proximity_readings[i][current_proximity_array] > 180) {
           int x = i/(COLS/2);
           int y = i%(COLS/2);
+          
           SetPixel(2*x, 2*y, Wheel(selected_color));
           SetPixel(2*x, 2*y+1, Wheel(selected_color));
           SetPixel(2*x+1, 2*y, Wheel(selected_color));
@@ -285,12 +281,38 @@ void ShowUserColor(uint32_t color) {
   grid.show();
 }
 
-void ToggleProximityArray() {
-  if(++current_proximity_array > 1) {
-    current_proximity_array = 0;
-  }
+void ToggleProximityArray() 
+{
+  current_proximity_array = (current_proximity_array + 1) % NUM_SENSOR_READINGS;
+  DSERIAL_LN(current_proximity_array);
 }
 
-uint8_t OtherProximityIdx() {
-  return current_proximity_array == 0 ? 1 : 0;
+uint16_t max_readings(int idx)
+{
+  int cur_ind;
+  int cur_max = 0;
+  for (cur_ind = 0; cur_ind < NUM_SENSOR_READINGS; cur_ind++)
+  {
+    if(cur_max < proximity_readings[idx][cur_ind])
+    {
+      cur_max = proximity_readings[idx][cur_ind];
+    }
+  }
+  
+  return cur_max;
+}
+
+uint16_t min_readings(int idx)
+{  
+  int cur_ind;
+  int cur_min = 1023;
+  for (cur_ind = 0; cur_ind < NUM_SENSOR_READINGS; cur_ind++)
+  {
+    if(cur_min > proximity_readings[idx][cur_ind])
+    {
+      cur_min = proximity_readings[idx][cur_ind];
+    }
+  }
+  
+  return cur_min;
 }
