@@ -27,6 +27,9 @@
 #define COLOR_SKIP 10
 #define NUM_SENSOR_READINGS 3
 #define ACTIVE_SENSORS 40
+#define ANIMATE_SPEED 40
+#define ATTRACT_TIMEOUT 30000
+#define FUN_TIMEOUT 5000
 
 #define DSERIAL     if(DEBUG) Serial.print
 #define DSERIAL_LN  if(DEBUG) Serial.println
@@ -38,11 +41,15 @@ unsigned int system_mode = PROXIMITY_MODE;
 byte selected_color = 0;
 
 // Grid variables
-//uint32_t grid_state[ROWS][COLS];
+uint32_t grid_state[COLS][ROWS];
+
+long last_animation = 0;
+long last_input = 0;
+long last_fun = 0;
 
 // Proximity Sensor Variables
 uint16_t proximity_readings[PROXIMITY_SENSORS][NUM_SENSOR_READINGS];
-uint8_t current_proximity_array = 0;
+uint8_t current_proximity_array = 0; 
 
 void setup() {
   Serial.begin(115200);
@@ -50,8 +57,6 @@ void setup() {
   memset(proximity_readings, 0, sizeof(int)*PROXIMITY_SENSORS*NUM_SENSOR_READINGS);
   
   // Set up pins
-  /*pinMode(JOY_UP_PIN, INPUT);
-  pinMode(JOY_DOWN_PIN, INPUT);*/
   pinMode(CONTROL0, OUTPUT);
   pinMode(CONTROL1, OUTPUT);
   pinMode(CONTROL2, OUTPUT);
@@ -59,6 +64,7 @@ void setup() {
   
   // Set up grid
   grid.begin();
+  LoadGrid();
   grid.show();
 }
 
@@ -76,13 +82,6 @@ void loop() {
     proximity_readings[16+i][current_proximity_array] = uint16_t(analogRead(1));
     if(i<=7) proximity_readings[32+i][current_proximity_array] = uint16_t(analogRead(2));
   }
-  
-  /*for(int i=0; i<PROXIMITY_SENSORS; ++i) {
-    Serial.print(proximity_readings[i][current_proximity_array]);
-    Serial.print(" ");
-  }
-  Serial.println();*/
-  
   ToggleProximityArray(); 
   
           
@@ -91,111 +90,90 @@ void loop() {
     
     // Pixels animate on hover
     case PROXIMITY_MODE:
+    {
+      if(millis() - last_fun > FUN_TIMEOUT) {
+        last_fun = millis();
+        int bound = random(2,6);
+        for(int i=0; i<=bound; ++i) {
+          SetPixel(random(0,COLS), random(0,ROWS), Wheel(selected_color));
+        }
+      }
+      
+      int got_input = 0;
       for(int i=0; i < ACTIVE_SENSORS; ++i) {
         int c_max = max_readings(i);
         int c_min = min_readings(i);
         int diff = abs(c_max - c_min);
-        if(i == 10)
-        {
-          DSERIAL("index is ");
-          DSERIAL(i);
-          DSERIAL(" and diff is ");
-          DSERIAL(diff);
-          DSERIAL(" and max is ");
-          DSERIAL(c_max);
-          DSERIAL(" and min is ");
-          DSERIAL_LN(c_min);
-        }
+//          DSERIAL("index is ");
+//          DSERIAL(i);
+//          DSERIAL(" and diff is ");
+//          DSERIAL(diff);
+//          DSERIAL(" and max is ");
+//          DSERIAL(c_max);
+//          DSERIAL(" and min is ");
+//          DSERIAL_LN(c_min);
+        
+        int y = i / (COLS/2);
+        int x = i % (COLS/2);
         
         if(diff >= 18) {
-          
-          int y = i/(COLS/2);
-          int x = i%(COLS/2);
+          got_input = 1;
+          //grid_state[2*x][2*y] = Wheel(selected_color);
           SetPixel(2*x, 2*y, Wheel(selected_color));
-          // SetPixel(2*x, 2*y+1, Wheel(selected_color));
-          // SetPixel(2*x+1, 2*y, Wheel(selected_color));
-          // SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
+//          SetPixel(2*x, 2*y+1, Wheel(selected_color));
+//          SetPixel(2*x+1, 2*y, Wheel(selected_color));
+//          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
+        }
+        
+      }
+      
+      if(got_input) last_input = millis();
+      if(millis() - last_input > ATTRACT_TIMEOUT) system_mode = ATTRACT_MODE;
+      
+      for(int y=0; y<ROWS; ++y) {
+        for(int x=0; x<COLS; ++x) {
+          fade_pixel(x,y); 
         }
       }
-      for(int i=0; i<ROWS*COLS; ++i){
-        int x;
-        int y;
-        int diff_x;
-        int diff_y;
-        int idx = i + 1;
-        uint32_t current_color = grid.getPixelColor(i);
-        uint32_t red = (current_color & 0x000000FF);
-        uint32_t green =  (current_color & 0x0000FF00) >> 8;
-        uint32_t blue = (current_color & 0x00FF0000) >> 16;
-        if(red > 0) red--;
-        
-        if(blue > 0) blue--;
-        if(green > 0) green--;
-        
-        if(red | green | blue)
+      
+      // animate
+      if(millis() - last_animation > ANIMATE_SPEED) {
+        last_animation = millis();
+        for(int i=0; i<ACTIVE_SENSORS; ++i)
         {
-          current_color = red | (green << 8) | (blue << 16);
-          y = idx/(COLS/2);
-          x = idx%(COLS/2);
-          
-          diff_y = (idx/COLS) - 2*y;
-          diff_x = (idx%COLS) - 2*x;
-          
-          grid.setPixelColor(i,0);
-          
-          if(diff_y)
-          {
-            if(diff_x)
-            {
-              grid.setPixelColor(i-1, current_color);
+          int y = i / (COLS/2);
+          int x = i % (COLS/2);
+          int xx = 0;
+          int yy = 0;
+          int done = 0;
+          for(yy=0; yy<=1; ++yy) {
+            for(xx=0; xx<=1; ++xx) {
+              uint32_t current_color = GetPixel(2*x+xx, 2*y+yy);
+              if(current_color != 0) {
+                SetPixel(2*x+xx, 2*y+yy, 0);
+                if(xx == 0 && yy == 0) { // top right
+                  SetPixel(2*x+1, 2*y, current_color); 
+                } else if(xx == 1 && yy == 0) { // top left
+                  SetPixel(2*x+1, 2*y+1,  current_color); 
+                } else if(xx == 1 && yy == 1) { // bottom left
+                  SetPixel(2*x, 2*y+1,  current_color); 
+                } else if(xx == 0 && yy == 1) { // xx == 0 && yy == 1 // bottom right
+                  SetPixel(2*x, 2*y,  current_color);
+                }
+                done = 1;
+                break;
+              }
             }
-            else
-            {
-              grid.setPixelColor(i-COLS, current_color);
-            }
-          }
-          else
-          {
-            if(diff_x)
-            {
-              grid.setPixelColor(i+COLS, current_color);
-            }
-            else
-            {
-              grid.setPixelColor(i+1, current_color);
-            }
+            if(done) break;
           }
         }
       }
-
-    break;
-    
-    // Pixels turn on when hovered, fade over time.
-    case DRAW_MODE:
-      for(int i=0; i<PROXIMITY_SENSORS; ++i) {
-        if(proximity_readings[i][current_proximity_array] > 180) {
-          int x = i/(COLS/2);
-          int y = i%(COLS/2);
-          
-          SetPixel(2*x, 2*y, Wheel(selected_color));
-          SetPixel(2*x, 2*y+1, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y, Wheel(selected_color));
-          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
-        }
-      }
-      for(int i=0; i<ROWS*COLS; ++i) {
-        if(grid.getPixelColor(i) > 0) 
-          grid.setPixelColor(i, grid.getPixelColor(i)-0x010101);
-      }
-    break;
-    
-    // Pixels move like sand around hands
-    case SAND_MODE:
-    
+  }
     break;
     
     // Static animations to attract users
-    case ATTRACT_MODE:
+    case ATTRACT_MODE: 
+    {
       colorWipe(Color(255, 0, 0), 0);
       colorWipe(Color(0, 255, 0), 0);
       colorWipe(Color(0, 0, 255), 0);
@@ -203,8 +181,13 @@ void loop() {
       ColorZoom(1, 3);
       rainbowCycle(0);
       rainbow(0);
+      last_input = millis();
+      system_mode = PROXIMITY_MODE;
     break;  
+    }
   }
+  
+  LoadGrid();
   grid.show();
 }
 
@@ -226,6 +209,7 @@ void ColorZoom(int dir, int loops) {
           SetPixel(COLS/2 + j - k, ROWS/2 - j - 1, Wheel((i+dir*COLOR_SKIP*j)%256));
           SetPixel(COLS/2 + j, ROWS/2 - j + k, Wheel((i+dir*COLOR_SKIP*j)%256));
         }
+        LoadGrid();
         grid.show();
       }
   }
@@ -307,10 +291,22 @@ uint32_t Wheel(byte WheelPos)
 // Set pixel to color at (x,y) coordinate
 void SetPixel(uint16_t x, uint16_t y, uint32_t color) {
   if (x>=COLS || y>=ROWS) return;
-  if(y%2 == 0)
-    grid.setPixelColor(y*COLS + x, color);
-  else
-    grid.setPixelColor(y*COLS + (COLS-x-1), color);
+  grid_state[x][y] = color;
+}
+
+uint32_t GetPixel(uint16_t x, uint16_t y) {
+  return grid_state[x][y];
+}
+
+void LoadGrid() {
+  for(int y=0; y<ROWS; ++y) {
+    for(int x=0; x<COLS; ++x) {
+    if(y%2 == 0)
+      grid.setPixelColor(y*COLS + x, grid_state[x][y]);
+    else
+      grid.setPixelColor(y*COLS + (COLS-x-1), grid_state[x][y]);
+    }
+  }
 }
 
 void ShowUserColor(uint32_t color) {
@@ -353,4 +349,18 @@ uint16_t min_readings(int idx)
   }
   
   return cur_min;
+}
+
+void fade_pixel(uint16_t x, uint16_t y) 
+{
+        uint32_t current_color = grid_state[x][y];
+        uint32_t red = (current_color & 0x000000FF);
+        uint32_t green =  (current_color & 0x0000FF00) >> 8;
+        uint32_t blue = (current_color & 0x00FF0000) >> 16;
+        
+        if(red > 0) red--;
+        if(blue > 0) blue--;
+        if(green > 0) green--;
+        
+        grid_state[x][y] = red | (green << 8) | (blue << 16);
 }
