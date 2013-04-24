@@ -28,8 +28,8 @@
 #define NUM_SENSOR_READINGS 3
 #define ACTIVE_SENSORS 40
 #define ANIMATE_SPEED 40
-#define ATTRACT_TIMEOUT 30000
-#define FUN_TIMEOUT 5000
+#define ATTRACT_TIMEOUT 600000
+#define FUN_TIMEOUT 4000
 
 #define DSERIAL     if(DEBUG) Serial.print
 #define DSERIAL_LN  if(DEBUG) Serial.println
@@ -70,7 +70,7 @@ void setup() {
 
 
 void loop() {
-  selected_color = (millis() / 500) % 256;
+  selected_color = (millis() / 300) % 256;
   
   // Read proximity sensors
   for(int i=0; i<=15; ++i) {
@@ -82,7 +82,7 @@ void loop() {
     proximity_readings[16+i][current_proximity_array] = uint16_t(analogRead(1));
     if(i<=7) proximity_readings[32+i][current_proximity_array] = uint16_t(analogRead(2));
   }
-  ToggleProximityArray(); 
+  ToggleProximityArray();
   
           
   // Perform current system mode
@@ -91,13 +91,7 @@ void loop() {
     // Pixels animate on hover
     case PROXIMITY_MODE:
     {
-      if(millis() - last_fun > FUN_TIMEOUT) {
-        last_fun = millis();
-        int bound = random(2,6);
-        for(int i=0; i<=bound; ++i) {
-          SetPixel(random(0,COLS), random(0,ROWS), Wheel(selected_color));
-        }
-      }
+
       
       int got_input = 0;
       for(int i=0; i < ACTIVE_SENSORS; ++i) {
@@ -123,11 +117,21 @@ void loop() {
 //          SetPixel(2*x, 2*y+1, Wheel(selected_color));
 //          SetPixel(2*x+1, 2*y, Wheel(selected_color));
 //          SetPixel(2*x+1, 2*y+1, Wheel(selected_color));
-        }
-        
+        } 
       }
       
-      if(got_input) last_input = millis();
+      if(got_input) {
+        last_input = millis();
+        last_fun = last_input;
+      }
+      if(millis() - last_fun > FUN_TIMEOUT) {
+        last_fun = millis();
+        int bound = random(3,8);
+        for(int i=0; i<=bound; ++i) {
+          SetPixel(random(0,COLS), random(0,ROWS), Wheel(selected_color));
+        }
+      }
+      
       if(millis() - last_input > ATTRACT_TIMEOUT) system_mode = ATTRACT_MODE;
       
       for(int y=0; y<ROWS; ++y) {
@@ -175,12 +179,16 @@ void loop() {
     case ATTRACT_MODE: 
     {
       colorWipe(Color(255, 0, 0), 0);
+      if(system_mode == PROXIMITY_MODE) break;
       colorWipe(Color(0, 255, 0), 0);
+      if(system_mode == PROXIMITY_MODE) break;
       colorWipe(Color(0, 0, 255), 0);
+      if(system_mode == PROXIMITY_MODE) break;
       ColorZoom(-1, 3);
-      ColorZoom(1, 3);
+      if(system_mode == PROXIMITY_MODE) break;
+      //ColorZoom(1, 3);
       rainbowCycle(0);
-      rainbow(0);
+      //rainbow(0);
       last_input = millis();
       system_mode = PROXIMITY_MODE;
     break;  
@@ -209,6 +217,7 @@ void ColorZoom(int dir, int loops) {
           SetPixel(COLS/2 + j - k, ROWS/2 - j - 1, Wheel((i+dir*COLOR_SKIP*j)%256));
           SetPixel(COLS/2 + j, ROWS/2 - j + k, Wheel((i+dir*COLOR_SKIP*j)%256));
         }
+        if(CheckInput()) system_mode = PROXIMITY_MODE;
         LoadGrid();
         grid.show();
       }
@@ -221,7 +230,8 @@ void rainbow(uint8_t wait) {
   for (j=0; j < 256; j++) {     // 3 cycles of all 256 colors in the wheel
     for (i=0; i < grid.numPixels(); i++) {
       grid.setPixelColor(i, Wheel( (i + j) % 255));
-    }  
+    }
+    if(CheckInput()) system_mode = PROXIMITY_MODE;  
     grid.show();   // write all the pixels out
     delay(wait);
   }
@@ -239,7 +249,8 @@ void rainbowCycle(uint8_t wait) {
       // Then add in j which makes the colors go around per pixel
       // the % 96 is to make the wheel cycle around
       grid.setPixelColor(i, Wheel( ((i * 256 / grid.numPixels()) + j) % 256) );
-    }  
+    }
+  if(CheckInput()) system_mode = PROXIMITY_MODE;  
     grid.show();   // write all the pixels out
     delay(wait);
   }
@@ -252,6 +263,7 @@ void colorWipe(uint32_t c, uint8_t wait) {
   
   for (i=0; i < grid.numPixels(); i++) {
       grid.setPixelColor(i, c);
+      if(CheckInput()) system_mode = PROXIMITY_MODE;
       grid.show();
       delay(wait);
   }
@@ -363,4 +375,18 @@ void fade_pixel(uint16_t x, uint16_t y)
         if(green > 0) green--;
         
         grid_state[x][y] = red | (green << 8) | (blue << 16);
+}
+
+int CheckInput() {
+      int got_input = 0;
+      for(int i=0; i < ACTIVE_SENSORS; ++i) {
+        int c_max = max_readings(i);
+        int c_min = min_readings(i);
+        int diff = abs(c_max - c_min);
+        
+        if(diff >= 18) {
+          return 1;
+        } 
+      }
+      return 0;
 }
